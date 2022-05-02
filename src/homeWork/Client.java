@@ -12,18 +12,31 @@ public class Client {
     }
 
     public void start(String host, int port) throws IOException {
-        Socket socket = new Socket(host, port);
-        System.out.println("Клиент запущен");
-        DataInputStream inputStream = new DataInputStream(socket.getInputStream());
-        DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
+        Socket socket = null;
+        Thread inputThread = null;
 
-        runOutputLoop(outputStream);
+        try {
+            socket = new Socket(host, port);
+            System.out.println("Клиент запущен");
+            DataInputStream inputStream = new DataInputStream(socket.getInputStream());
+            DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
 
-        runInputLoop(inputStream);
+            inputThread = runInputLoop(inputStream);
+            runOutputLoop(outputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (inputThread != null) {
+                inputThread.interrupt();
+            }
+            if (socket != null) {
+                socket.close();
+            }
+        }
     }
 
-    private void runInputLoop(DataInputStream inputStream) {
-        new Thread(new Runnable() {
+    private Thread runInputLoop(DataInputStream inputStream) {
+        Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 while (!Thread.currentThread().isInterrupted()) {
@@ -35,11 +48,14 @@ public class Client {
                         }
                     } catch (IOException e) {
                         System.out.println("Подключение прервано");
+                        System.exit(0);
                         break;
                     }
                 }
             }
-        }).start();
+        });
+        thread.start();
+        return thread;
     }
 
     private void runOutputLoop(DataOutputStream outputStream) throws IOException {
